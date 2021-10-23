@@ -1,0 +1,425 @@
+package courseproject;
+
+enum Color {// 枚举，表示节点的颜色信息
+	RED, BLACK;
+}
+
+public class RedBlackTree<K extends Comparable<? super K>, V> {
+	/*
+	 * 成员变量说明： 根节点为：root
+	 * 当前节点，当前节点的双亲节点，当前节点的祖父节点，当前节点的曾祖父节点，分别表示为：target、parent、gparent、great
+	 * 节点个数：size 红黑树的深度（阶度）：high 默认最大。
+	 */
+	private Node<K, V> root;
+	private Node<K, V> great, gparent, parent, target;
+	private int size;
+	private int high = Integer.MAX_VALUE;
+
+	public int highSize() {// 求最大高度
+		return highSize(root);
+	}
+
+	private int highSize(Node<K, V> target) {// 递归方法求最大的深度
+		if (target == null)
+			return 0;
+		int left = highSize(target.left);
+		int right = highSize(target.right);
+		return left > right ? left + 1 : right + 1;
+	}
+
+	public int size() {
+		return size;
+	}
+
+	public RedBlackTree(int high) {
+		this.high = high;
+	}
+
+	public RedBlackTree() {
+	}
+
+	public boolean isEmpty() {
+		return size == 0;
+	}
+
+	private static class Node<K, V> {
+		K key;
+		@SuppressWarnings("unused")
+		V value;
+		Color color;
+		Node<K, V> left;
+		Node<K, V> right;
+
+		Node(K key, V value, Color color) {
+			this.key = key;
+			this.value = value;
+			this.color = color;
+		}
+
+		Node(K key, V value, Color color, Node<K, V> right, Node<K, V> left) {
+			this.key = key;
+			this.value = value;
+			this.color = color;
+			this.right = right;
+			this.left = left;
+		}
+	}
+
+	public void insert(K key, V value, Color color) {
+		if (high == highSize()) {// 简单处理
+			System.out.println("Red——Black Tree已达到设置最大高度，插入失败！");
+			return;
+		}
+		if (insertSearch(key)) {// 找到,修改原有的信息
+			target.color = color;
+			target.value = value;
+			insertAdjust();// 修改后可能不符合红黑树性质了，进行检查
+		} else {// 没找到则插入新的节点
+			if (parent == null) {// 空树
+				root = new Node<K, V>(key, value, Color.BLACK);
+			} else {
+				target = new Node<K, V>(key, value, color);
+				if (key.compareTo(parent.key) < 0)// 决定插入的结点是双亲结点的左孩子还是右孩子
+					parent.left = target;
+				else
+					parent.right = target;
+				// 处理双红子节点问题
+				insertAdjust();// 修改后可能不符合红黑树性质了，进行检查
+			}
+			size++;
+		}
+	}
+
+	private void rotateLeft(Node<K, V> target, Node<K, V> parent) {// 可使用中间变量，减少代码量，增加一个Node内存开销
+		if (parent == null) {
+			root = target.right;
+			target.right = root.left;
+			root.left = target;
+		} else {
+			if (parent.left == target) {
+				parent.left = target.right;
+				target.right = parent.left.left;
+				parent.left.left = target;
+			} else {
+				parent.right = target.right;
+				target.right = parent.right.left;
+				parent.right.left = target;
+			}
+		}
+	}
+
+	private void rotateRight(Node<K, V> target, Node<K, V> parent) {// 方法同左旋转
+		if (parent == null) {
+			root = target.left;
+			target.left = root.right;
+			root.right = target;
+		} else {
+			if (parent.left == target) {
+				parent.left = target.left;
+				target.left = parent.left.right;
+				parent.left.right = target;
+			} else {
+				parent.right = target.left;
+				target.left = parent.right.right;
+				parent.right.right = target;
+			}
+		}
+	}
+
+	private boolean insertSearch(K key) {// 功能：查找key节点。并且同时进行调整
+		boolean flag = false;
+		if (root == null)
+			return false;
+
+		target = root;
+		parent = null;
+		gparent = null;
+		great = null;
+		while (target != null) {
+			// ↓判断当前节点是否符合孩子节点不都是红节点，不符合则调整
+			if (target.left != null && target.right != null && target.left.color == Color.RED
+					&& target.right.color == Color.RED) {
+				target.left.color = Color.BLACK;
+				target.right.color = Color.BLACK;
+				target.color = Color.RED;// 进行部分改变后 再调整
+				insertAdjust();
+			}
+
+			int result = key.compareTo(target.key);
+			if (result == 0) {
+				flag = true;
+				break;
+			}
+			great = gparent;
+			gparent = parent;
+			parent = target;
+			target = (result > 0 ? target.right : target.left);
+		}
+		return flag;
+	}
+
+	private void insertAdjust() {
+		// 调整算法，↓符合调整要求
+		if (parent != null && parent.color == Color.RED && gparent != null && target.color == Color.RED) {
+			boolean downleft = true, upleft = false;// 标记类型
+			if (target != parent.left)
+				downleft = false;
+			if (parent == gparent.left)
+				upleft = true;
+
+			if (downleft == true && upleft == true) {// LL型,以gparent做一次右转（gparent，孩子）
+				rotateRight(gparent, great);
+				parent.color = Color.BLACK;
+				parent.right.color = Color.RED;
+			} else if (downleft == false && upleft == false) {// RR型，以gparent做一次左转（gpareent,孩子）
+				rotateLeft(gparent, great);
+				parent.color = Color.BLACK;
+				parent.left.color = Color.RED;
+			} else if (downleft == true && upleft == false) {// RL型先右转再左转（target，gparent）
+				rotateRight(parent, gparent);
+				rotateLeft(gparent, great);
+				target.color = Color.BLACK;
+				gparent.color = Color.RED;
+			} else {// LR型
+				rotateLeft(parent, gparent);
+				rotateRight(gparent, great);
+				target.color = Color.BLACK;
+				gparent.color = Color.RED;
+			}
+		}
+
+		if (root.color == Color.RED)// 根节点必须符合总为黑
+			root.color = Color.BLACK;
+	}
+
+	@SuppressWarnings("unchecked")
+	private Node<K, V> deleteSearch(K key) {// 功能：边调整边进行查找，若找到则继续进行查找左子树最大的叶子节点。
+		@SuppressWarnings("rawtypes")
+		Node<K, V> head = new Node(0, 0, Color.RED, root, null);// 算法要求。
+		int result;
+		target = root;
+		parent = head;
+		gparent = null;
+		while (target != null) {// 找到那个删除的节点
+			result = key.compareTo(target.key);
+			if (target.color == Color.BLACK) {
+				deleteAdjust(head);// 当前节点为黑色——调整，传入头节点
+			}
+			if (result == 0) {// 找到
+				break;
+			}
+			gparent = parent;
+			parent = target;
+			target = (result > 0 ? target.right : target.left);
+		}
+		Node<K, V> current = target;// 记住找到的节点
+
+		if (target != null && target.left != null) {// 找到能替换的节点，保存到target中
+			gparent = parent;
+			parent = target;
+			target = target.left;// 左子树
+			while (target.right != null) {// 找左子树中最大的那个节点
+				deleteAdjust(head);// 删除调整，每次进行调整，传入头节点信息
+				gparent = parent;
+				parent = target;
+				target = target.right;// 一直向右找
+			}
+		}
+		return current;// 返回要替换的节点
+	}
+
+	private void deleteAdjust(Node<K, V> head) {// 头节点作用：更新root信息而设置
+		boolean downleft = true;
+		if (target != parent.left)// 判断类型
+			downleft = false;
+
+		// ↓以下为开始处理情况
+		if (target.color == Color.RED) {// 当前为红色情况,不处理
+			return;
+		} else {// 当前为黑色情况，进行调整
+			if (parent.color == Color.BLACK) {// 双亲为黑色情况。属于:上次没调整，暂缓处理后的处理
+				if (downleft) {
+					Node<K, V> mid = parent.right;
+					rotateLeft(parent, gparent);
+					root = head.left;// 更新
+					parent.color = Color.RED;
+					mid.color = Color.BLACK;
+					return;
+				} else {
+					Node<K, V> mid = parent.left;
+					rotateRight(parent, gparent);// 右旋
+					root = head.right;// 更新
+					parent.color = Color.RED;
+					mid.color = Color.BLACK;
+					return;
+				}
+			} else {// else语句块为双亲是红色，当前为黑色情况
+				if (((target.left != null) && (target.left.color == Color.RED))
+						|| ((target.right != null) && (target.right.color == Color.RED)))
+					return;// ←他的子孩子，至少有一个为红色，暂缓处理。
+
+				// 属于target孩子都为黑色的，只需要处理s的各种孩子情况
+				if (downleft) {// 处理target在左边的情况
+					// s的孩子都黑情况↓
+					if ((parent.right.left == null || (parent.right.left.color == Color.BLACK))
+							&& (parent.right.right == null || (parent.right.right.color == Color.BLACK))) {
+						parent.color = Color.BLACK;
+						target.color = Color.RED;
+						parent.right.color = Color.RED;
+						return;
+					}
+					// s的孩子只有右边为红色，以及孩子都为红两种情况↓
+					if ((parent.right.right != null && (parent.right.right.color == Color.RED))) {// 合成两种情况
+						Node<K, V> mid = parent.right;
+						rotateLeft(parent, gparent);
+						root = head.right;// 更新
+						target.color = Color.RED;
+						mid.color = Color.RED;
+						mid.right.color = Color.BLACK;
+						parent.color = Color.BLACK;
+						return;
+					}
+					// s的孩子只有左边为红色↓
+					if ((parent.right.left != null && (parent.right.left.color == Color.RED))) {
+						Node<K, V> mid = parent;
+						rotateRight(parent.right, parent);// 先右旋
+						rotateLeft(parent, gparent);// 再左旋
+						root = head.right;// 更新
+						target.color = Color.RED;
+						mid.color = Color.BLACK;
+						return;
+					}
+				} else {// 处理target在右边的情况
+					// s的孩子都黑↓
+					if ((parent.left.left == null || (parent.left.left.color == Color.BLACK)
+							&& (parent.left.right == null || (parent.left.right.color == Color.BLACK)))) {
+						parent.color = Color.BLACK;
+						target.color = Color.RED;
+						parent.left.color = Color.RED;
+						return;
+					}
+					// s的孩子只有左边为红色，以及孩子都为红色两种情况↓
+					if ((parent.left.left != null && (parent.left.left.color == Color.RED))) {// 合成两种情况
+						Node<K, V> mid = parent.left;
+						rotateRight(parent, gparent);
+						root = head.right;// 更新
+						target.color = Color.RED;
+						mid.color = Color.RED;
+						mid.left.color = Color.BLACK;
+						parent.color = Color.BLACK;
+						return;
+					}
+					// s的孩子只有右边为红色↓
+					if ((parent.left.right != null && (parent.left.right.color == Color.RED))) {
+						Node<K, V> mid = parent;
+						rotateLeft(parent.left, parent);// 先左旋
+						rotateRight(parent, gparent);// 再右旋
+						root = head.right;// 更新
+						target.color = Color.RED;
+						mid.color = Color.BLACK;
+						return;
+					}
+				}
+			}
+		}
+	}
+
+	public void erase(K key) {// 删除key节点的信息
+		Node<K, V> current = deleteSearch(key);// 记录将要删除节点的信息
+		if (current == null) {// 找不到删除的节点
+			System.out.println("删除失败，未查找到key：" + key + "!");
+			return;
+		}
+
+		if (target.color == Color.RED) {// 删除叶子节点是红色的，直接删除
+			if (parent != current)// 左子树最大节点parent是否为要删除信息的节点
+				parent.right = null;
+			else {
+				parent.left = null;
+			}
+		} else {// 叶子节点为黑色节点
+			parent.right = (target.left != null ? target.left : null); // 对应两种情况
+		}
+		current.key = target.key;
+		size--;
+	}
+
+	public void Print() {// 中序遍历输出红黑树的信息
+		inOrder(root);
+	}
+
+	private void inOrder(Node<K, V> midnode) {// 中序递归
+		if (midnode != null) {
+			System.out.println("颜色：" + midnode.color + "：Key:" + midnode.key);
+			inOrder(midnode.left);
+			inOrder(midnode.right);
+		}
+	}
+
+	public static void main(String[] args) {
+
+// 红黑树课件中的测试用例：
+		RedBlackTree<Integer, Integer> testwithhigh = new RedBlackTree<Integer, Integer>(2);
+		System.out.println("-------------下面为初始状态---------------");
+		testwithhigh.insert(65, 3, Color.BLACK);
+		testwithhigh.insert(50, 3, Color.RED);
+		testwithhigh.insert(80, 3, Color.RED);
+		testwithhigh.insert(10, 3, Color.BLACK);
+		testwithhigh.insert(60, 3, Color.BLACK);
+		testwithhigh.insert(70, 3, Color.BLACK);
+		testwithhigh.insert(90, 3, Color.BLACK);
+		testwithhigh.insert(62, 3, Color.RED);
+		testwithhigh.insert(50, 3, Color.RED);// 测试
+		testwithhigh.insert(80, 3, Color.RED);// 测试
+		testwithhigh.Print();
+		System.out.println("----------下面为删除K为90情况-------------");
+		testwithhigh.erase(90);
+		testwithhigh.Print();
+		System.out.println("----------下面为删除K为80情况-------------");
+		testwithhigh.erase(80);
+		testwithhigh.Print();
+		System.out.println("----------下面为删除K为70情况-------------");
+		testwithhigh.erase(70);
+		testwithhigh.Print();
+		System.out.println("--------以上为课件中的案例测试全部结果--------");
+
+//自己创建的测试用例：
+		RedBlackTree<Integer, Integer> test = new RedBlackTree<Integer, Integer>();
+		System.out.println("-------------下面为初始状态---------------");
+		test.insert(8, 100, Color.RED);
+		test.insert(11, 200, Color.RED);
+		test.insert(2, 150, Color.RED);
+		test.insert(3, 200, Color.RED);
+		test.insert(13, 200, Color.RED);
+		test.insert(1, 200, Color.RED);
+		test.insert(9, 200, Color.RED);
+		test.insert(7, 200, Color.RED);
+		test.insert(4, 250, Color.RED);
+		test.insert(5, 300, Color.RED);
+		test.insert(5, 360, Color.RED);// 测试
+		test.Print();
+		System.out.println("----------以上为自己测试全部结果----------");
+
+// 红黑树(course)测试用例：
+		RedBlackTree<Integer, Integer> testbook = new RedBlackTree<Integer, Integer>();
+		System.out.println("------------下面为初始状态-------------");
+		testbook.insert(30, 100, Color.RED);
+		testbook.insert(15, 100, Color.BLACK);
+		testbook.insert(70, 100, Color.BLACK);
+		testbook.insert(10, 100, Color.BLACK);
+		testbook.insert(20, 100, Color.BLACK);
+		testbook.insert(85, 100, Color.BLACK);
+		testbook.insert(60, 100, Color.RED);
+		testbook.insert(5, 100, Color.RED);
+		testbook.insert(50, 100, Color.BLACK);
+		testbook.insert(65, 100, Color.BLACK);
+		testbook.insert(80, 100, Color.RED);
+		testbook.insert(90, 100, Color.RED);
+		testbook.insert(40, 100, Color.RED);
+		testbook.insert(55, 100, Color.RED);
+		testbook.insert(45, 100, Color.RED);
+		testbook.Print();
+		System.out.println("--------以上为课件中的案例测试全部结果--------");
+	}
+}
+
